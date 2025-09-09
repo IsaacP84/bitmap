@@ -4,11 +4,12 @@
 #include <fstream>
 #include <vector>
 #include <exception>
+
 extern "C"
 {
     using namespace std;
 
-    Color::Color(float r, float g, float b, float a)
+    Color::Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
     {
         this->r = r;
         this->g = g;
@@ -42,7 +43,7 @@ extern "C"
         colors.reserve(MAXIMUM_COLORS);
     }
 
-    Color &ColorMap::addColor(float r, float g, float b, float a)
+    Color &ColorMap::addColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
     {
         if (colors.size() + 1 > MAXIMUM_COLORS)
         {
@@ -77,7 +78,8 @@ extern "C"
 
     // BMP
 
-    BMP::BMP(unsigned int width, unsigned int height, unsigned int bitDepth)
+    BMP::BMP(unsigned int w, unsigned int h, unsigned int bitDepth)
+        : width(w), height(h)
     {
         data = new int *[width];
         for (unsigned int i = 0; i < width; i++)
@@ -88,9 +90,6 @@ extern "C"
                 data[i][j] = 0;
             }
         }
-
-        this->width = width;
-        this->height = height;
 
         this->bitDepth = bitDepth;
 
@@ -109,7 +108,7 @@ extern "C"
         delete[] data;
     }
 
-    Color &BMP::addColor(float r, float g, float b, float a)
+    Color &BMP::addColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
     {
         return colors.addColor(r, g, b, a);
     }
@@ -271,7 +270,9 @@ extern "C"
             // f.write(reinterpret_cast<char *>(colorMap), colorMapSize);
         }
 
-        unsigned char *row = new unsigned char[rowSizeBytes];
+        // unsigned char *row = new unsigned char[rowSizeBytes];
+        // should theoretically be faster because this is on the stack
+        uint8_t row[rowSizeBytes];
 
         for (unsigned int j = 0; j < height; j++)
         {
@@ -279,6 +280,7 @@ extern "C"
             // for (unsigned int i = paddingStartBit; i < rowSizeBytes; i++)
             //     row[i] = 0;
             // truncates
+            // clear bytes from memory to be reused
             for (unsigned int i = 0; i < rowSizeBytes; i++)
                 row[i] = 0;
 
@@ -286,12 +288,13 @@ extern "C"
             {
                 for (unsigned int i = 0; i < width; i++)
                 {
-                    unsigned char bits = row[(i * bitDepth) / 8];
+                    uint8_t bits = row[(i * bitDepth) / 8];
                     // do some checks on the data;
 
                     if ((i * bitDepth) < paddingStartBit)
                     {
                         // cout << 7 - (i * bitDepth % 8) << endl;
+                        // have an unsafe check
                         if (data[i][j] > colors.MAXIMUM_COLORS)
                         {
                             data[i][j] = 1;
@@ -316,15 +319,15 @@ extern "C"
                 {
                     if (data[i][j] == 1)
                     {
-                        row[i * 3] = static_cast<unsigned char>(0 * 255.0f);
-                        row[i * 3 + 1] = static_cast<unsigned char>(0 * 255.0f);
-                        row[i * 3 + 2] = static_cast<unsigned char>(0 * 255.0f);
+                        row[i * 3] = static_cast<unsigned char>(0);
+                        row[i * 3 + 1] = static_cast<unsigned char>(0);
+                        row[i * 3 + 2] = static_cast<unsigned char>(0);
                     }
                     if (data[i][j] == 0)
                     {
-                        row[i * 3] = static_cast<unsigned char>(1 * 255.0f);
-                        row[i * 3 + 1] = static_cast<unsigned char>(1 * 255.0f);
-                        row[i * 3 + 2] = static_cast<unsigned char>(1 * 255.0f);
+                        row[i * 3] = static_cast<unsigned char>(255);
+                        row[i * 3 + 1] = static_cast<unsigned char>(255);
+                        row[i * 3 + 2] = static_cast<unsigned char>(255);
                     }
                 }
                 // cout << "after 1" << endl;
@@ -333,7 +336,7 @@ extern "C"
             f.write(reinterpret_cast<char *>(row), rowSizeBytes);
         }
 
-        delete[] row;
+        // delete[] row;
         f.close();
 
         if (!silent)

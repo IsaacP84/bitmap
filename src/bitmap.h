@@ -20,18 +20,18 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
+
+
 extern "C"
 {
     struct BITMAP_API Color
     {
-        float r = 0;
-        float g = 0;
-        float b = 0;
-        float a = 0;
+        uint8_t r, g, b, a = 0;
 
-        Color(float r, float g, float b, float a = 0);
+        Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0);
 
-        friend std::ostream;
+        // friend std::ostream;
     };
 
     struct BITMAP_API ColorMap
@@ -51,7 +51,7 @@ extern "C"
         Color &getColor(unsigned int index);
 
         // Add a color
-        Color &addColor(float r, float g, float b, float a = 0);
+        Color &addColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0);
 
         // is unset for the moment
         void setColor(unsigned int index, Color color);
@@ -63,8 +63,8 @@ extern "C"
 
     class BITMAP_API BMP
     {
-        unsigned int width = 0;
-        unsigned int height = 0;
+        const unsigned int width = 0;
+        const unsigned int height = 0;
         unsigned int bitDepth = 1;
         ColorMap colors;
 
@@ -78,10 +78,14 @@ extern "C"
         Color &getColor(unsigned int index);
 
         // Add a color
-        Color &addColor(float r, float g, float b, float a = 0);
+        Color &addColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0);
 
         void toFile(std::string fileName, bool silent = false);
 
         void toConsole();
+
+        // setters
+
+        // getters
     };
 }
