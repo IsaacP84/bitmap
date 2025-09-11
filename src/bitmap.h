@@ -27,34 +27,41 @@ extern "C"
 {
     struct BITMAP_API Color
     {
-        uint8_t r, g, b, a = 0;
+        uint8_t b;
+        uint8_t g;
+        uint8_t r;
 
-        Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0);
+        Color(uint8_t r = 0, uint8_t g = 0, uint8_t b = 0);
+    };
 
-        // friend std::ostream;
+    struct BITMAP_API ColorRGBA : Color
+    {
+        uint8_t a;
+
+        ColorRGBA(uint8_t r = 0, uint8_t g = 0, uint8_t b = 0, uint8_t a = 0);
     };
 
     struct BITMAP_API ColorMap
     {
-        std::vector<Color> colors = std::vector<Color>();
+        std::vector<ColorRGBA> colors = std::vector<ColorRGBA>();
         unsigned int bitDepth = 1;
         unsigned int MAXIMUM_COLORS;
 
         ColorMap();
         ColorMap(unsigned int bitDepth);
-        ColorMap(unsigned int bitDepth, std::vector<Color> colors);
+        ColorMap(unsigned int bitDepth, std::vector<ColorRGBA> colors);
 
         // Returns the number of assigned colors
         auto length();
 
         // Return by reference
-        Color &getColor(unsigned int index);
+        ColorRGBA &getColor(unsigned int index);
 
         // Add a color
-        Color &addColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0);
+        ColorRGBA &addColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0);
 
         // is unset for the moment
-        void setColor(unsigned int index, Color color);
+        void setColor(unsigned int index, ColorRGBA color);
 
         operator bool() const;
 
@@ -63,15 +70,16 @@ extern "C"
 
     class BITMAP_API BMP
     {
-        const unsigned int width = 0;
-        const unsigned int height = 0;
-        unsigned int bitDepth = 1;
+        const uint32_t width;
+        const uint32_t height;
+        const uint8_t bitDepth;
         ColorMap colors;
+        uint8_t sizePixelBits;
 
     public:
-        int **data;
+        void *data;
 
-        BMP(unsigned int width, unsigned int height, unsigned int bitDepth = 1);
+        BMP(uint32_t width, uint32_t height, uint8_t bitDepth = 1);
         ~BMP();
 
         // Return by reference
@@ -85,6 +93,8 @@ extern "C"
         void toConsole();
 
         // setters
+        void setPixel(uint32_t x, uint32_t y, Color c);
+        void setPixel(uint32_t x, uint32_t y, uint8_t value);
 
         // getters
     };

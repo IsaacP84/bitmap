@@ -9,7 +9,35 @@ extern "C"
 {
     using namespace std;
 
-    Color::Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+    struct InfoHeader
+    {
+        uint32_t biSize;
+        int32_t biWidth;
+        int32_t biHeight;
+        uint16_t biPlanes;
+        uint16_t biBitCount; // This defines the bit depth
+        uint32_t biCompression;
+        uint32_t biSizeImage;
+        int32_t biXPelsPerMeter;
+        int32_t biYPelsPerMeter;
+        uint32_t biClrUsed;
+        uint32_t biClrImportant;
+    };
+
+    Color::Color(uint8_t r, uint8_t g, uint8_t b)
+    {
+        this->r = r;
+        this->g = g;
+        this->b = b;
+    }
+
+    // std::ostream &operator<<(std::ostream &os, const Color &data)
+    // {
+    //     os << '(' << data.r << ',' << data.g << ',' << data.b << ')';
+    //     return os;
+    // }
+
+    ColorRGBA::ColorRGBA(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
     {
         this->r = r;
         this->g = g;
@@ -17,11 +45,12 @@ extern "C"
         this->a = a;
     }
 
-    std::ostream &operator<<(std::ostream &out, Color &data)
-    {
-        out << '(' << data.r << ',' << data.g << ',' << data.b << ',' << data.a << ')';
-        return out;
-    }
+    // std::ostream &operator<<(std::ostream &out, const ColorRGBA &data)
+    // {
+    //     // out << static_cast<const Color &>(data);
+    //     out << '(' << data.r << ',' << data.g << ',' << data.b << ',' << data.a << ')';
+    //     return out;
+    // }
 
     // ColorMap
 
@@ -37,24 +66,24 @@ extern "C"
         colors.reserve(MAXIMUM_COLORS);
     }
 
-    ColorMap::ColorMap(unsigned int bitDepth, std::vector<Color> colors)
+    ColorMap::ColorMap(unsigned int bitDepth, std::vector<ColorRGBA> colors)
     {
         MAXIMUM_COLORS = 2 << bitDepth;
         colors.reserve(MAXIMUM_COLORS);
     }
 
-    Color &ColorMap::addColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+    ColorRGBA &ColorMap::addColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
     {
         if (colors.size() + 1 > MAXIMUM_COLORS)
         {
             throw std::length_error("Maximum Colors for this bit depth has been reached.");
         }
 
-        colors.push_back(Color(r, g, b, a));
+        colors.push_back(ColorRGBA(r, g, b, a));
         return colors.back();
     }
 
-    Color &ColorMap::getColor(unsigned int index)
+    ColorRGBA &ColorMap::getColor(unsigned int index)
     {
         return colors[index];
     }
@@ -78,34 +107,42 @@ extern "C"
 
     // BMP
 
-    BMP::BMP(unsigned int w, unsigned int h, unsigned int bitDepth)
-        : width(w), height(h)
+    BMP::BMP(uint32_t w, uint32_t h, uint8_t bitDepth)
+        : width(w), height(h), bitDepth(bitDepth)
     {
-        data = new int *[width];
-        for (unsigned int i = 0; i < width; i++)
+        switch (bitDepth)
         {
-            data[i] = new int[height];
-            for (unsigned int j = 0; j < height; j++)
-            {
-                data[i][j] = 0;
-            }
-        }
-
-        this->bitDepth = bitDepth;
-
-        if (bitDepth <= 8)
-        {
+        case 1:
+        case 2:
+        case 4:
+        case 8:
             colors = ColorMap(bitDepth);
+            data = malloc(width * height * sizeof(uint8_t));
+            break;
+        case 24:
+            data = malloc(width * height * sizeof(Color));
+            break;
+        case 32:
+            data = malloc(width * height * sizeof(Color));
+            break;
+
+        default:
+            throw "Bit Depth not handled.";
         }
+
+        if (data == NULL)
+        {
+            perror("Failed to allocate memory for data");
+            exit(EXIT_FAILURE);
+        }
+
+        // no type checking for high bitdepths
     }
 
     BMP::~BMP()
     {
-        for (unsigned int i = 0; i < width; i++)
-        {
-            delete[] data[i];
-        }
-        delete[] data;
+        free(data);
+        data = NULL;
     }
 
     Color &BMP::addColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
@@ -116,6 +153,31 @@ extern "C"
     Color &BMP::getColor(unsigned int index)
     {
         return colors[index];
+    }
+
+    void BMP::setPixel(uint32_t x, uint32_t y, uint8_t value)
+    {
+        if(colors.length() == 0)
+        {
+            __throw_invalid_argument("No color palette.");
+        }
+
+        if(bitDepth > 8)
+        {
+            __throw_invalid_argument("Cant assign by index");
+        }
+        // Copy the element into the array
+        memcpy((char *)data + ((x * width + y) * sizeof(uint8_t)), &value, sizeof(uint8_t));
+    }
+
+    void BMP::setPixel(uint32_t x, uint32_t y, const Color c)
+    {
+        if(bitDepth != 24)
+        {
+            __throw_invalid_argument("Don't use a Color object. Use an index");
+        }
+        // Copy the element into the array
+        memcpy((char *)data + ((x * width + y) * sizeof(Color)), &c, sizeof(Color));
     }
 
     void BMP::toFile(string fileName, bool silent)
@@ -239,35 +301,10 @@ extern "C"
 
         if (colors)
         {
-            // unsigned char *colorEntry = new unsigned char[4];
             for (unsigned int i = 0; i < colors.length(); i++)
             {
-                unsigned char *colorEntry = new unsigned char[4];
-                // Blue
-                colorEntry[0] = (unsigned char)colors[i].b;
-
-                // cout << "b: " << static_cast<float>(colorEntry[0]) << endl;
-                // Green
-                colorEntry[1] = (unsigned char)colors[i].g;
-
-                // cout << "g: " << static_cast<float>(colorEntry[1]) << endl;
-                // Red
-                colorEntry[2] = (unsigned char)colors[i].r;
-
-                // cout << "r: " << static_cast<float>(colorEntry[2]) << endl;
-                // Alpha
-                colorEntry[3] = (unsigned char)colors[i].a;
-
-                f.write(reinterpret_cast<char *>(colorEntry), 4);
-                delete[] colorEntry;
+                f.write(reinterpret_cast<char *>(&colors[i]), sizeof(ColorRGBA));
             }
-
-            // for (int i = 0; i < colorMapSize; i++)
-            // {
-            //     cout << i << " " << static_cast<float>(colorMap[i]) << endl;
-            // }
-            // cout << endl;
-            // f.write(reinterpret_cast<char *>(colorMap), colorMapSize);
         }
 
         // unsigned char *row = new unsigned char[rowSizeBytes];
@@ -293,17 +330,22 @@ extern "C"
 
                     if ((i * bitDepth) < paddingStartBit)
                     {
+
+                        // uint8_t dataCut = *(int*)data[i * width + j];
+                        // black magic fuckery
+                        uint8_t dataCut = *((uint8_t *)data + (i * width + j) * sizeof(uint8_t));
+
                         // cout << 7 - (i * bitDepth % 8) << endl;
                         // have an unsafe check
-                        if (data[i][j] > colors.MAXIMUM_COLORS)
+                        if (dataCut > colors.MAXIMUM_COLORS)
                         {
-                            data[i][j] = 1;
+                            dataCut = -1;
                         }
 
                         // truncate then add 7
                         // start from the highest and go down
                         int offset = (8 - bitDepth) - (i * bitDepth % 8);
-                        bits |= (data[i][j] << offset);
+                        bits |= (dataCut << offset);
                     }
                     else
                     {
@@ -315,20 +357,19 @@ extern "C"
             }
             else
             {
-                for (unsigned int i = 0; i < width; i++)
+                for (uint32_t i = 0; i < width; i++)
                 {
-                    if (data[i][j] == 1)
-                    {
-                        row[i * 3] = static_cast<unsigned char>(0);
-                        row[i * 3 + 1] = static_cast<unsigned char>(0);
-                        row[i * 3 + 2] = static_cast<unsigned char>(0);
-                    }
-                    if (data[i][j] == 0)
-                    {
-                        row[i * 3] = static_cast<unsigned char>(255);
-                        row[i * 3 + 1] = static_cast<unsigned char>(255);
-                        row[i * 3 + 2] = static_cast<unsigned char>(255);
-                    }
+                    // Color cl = Color(rand() % 255, rand() % 255, rand() % 255);
+                    // Color cl = Color(255, 255, 255);
+
+                    // Color *dataCut = &cl;
+                    const Color *dataCut = ((Color*)data + i * width + j);
+                    memcpy(&row[i * 3], &dataCut->b, sizeof(uint8_t));
+                    memcpy(&row[i * 3 + 1], &dataCut->g, sizeof(uint8_t));
+                    memcpy(&row[i * 3 + 2], &dataCut->r, sizeof(uint8_t));
+                    // row[i * 3] = static_cast<uint8_t>(dataCut.b);
+                    // row[i * 3 + 1] = static_cast<uint8_t>(dataCut.g);
+                    // row[i * 3 + 2] = static_cast<uint8_t>(dataCut.r);
                 }
                 // cout << "after 1" << endl;
             }
@@ -354,7 +395,7 @@ extern "C"
         {
             for (unsigned int j = 0; j < height; j++)
             {
-                cout << data[i][j];
+                cout << *(int *)(data + (i * width + j));
             }
             cout << endl;
         }
