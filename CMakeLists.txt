@@ -1,21 +1,31 @@
 cmake_minimum_required(VERSION 3.30.1)
-project(bitmap
-    VERSION 1.0.1
+
+message(NOTICE " " CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE})
+message(NOTICE " " CMAKE_CURRENT_BINARY_DIR = ${CMAKE_CURRENT_BINARY_DIR})
+
+project(BitmapLibrary
+    VERSION 1.0.2
     LANGUAGES CXX
 )
 
-# The compiled library code is here
-add_subdirectory(src)
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra")
 
 # The executable code is here
-# add_subdirectory(apps)
-# install(EXPORT bitmapTargets DESTINATION lib/bitmap)
+add_subdirectory(src)
 
-# Testing only available if this is the main app
-# Emergency override MODERN_CMAKE_BUILD_TESTING provided as well
-if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OR BUILD_TESTING)
-    AND BUILD_TESTING)
-    add_subdirectory(test)
+# The executable app is here
+add_subdirectory(app)
+
+include(CTest)
+if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME))
+        add_subdirectory(test)        
 endif()
 
 
+
+# if(CMAKE_BUILD_TYPE STREQUAL Release)
+#     # Other stuff potentially
+# else()
+#     # Testing only available if this is the main app
+    
+# endif()

@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <filesystem>
 
 
 extern "C"
@@ -88,7 +89,7 @@ extern "C"
         // Add a color
         Color &addColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0);
 
-        void toFile(std::string fileName, bool silent = false);
+        void toFile(std::filesystem::path fileName, bool silent = false);
 
         void toConsole();
 

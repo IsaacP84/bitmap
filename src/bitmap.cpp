@@ -5,6 +5,8 @@
 #include <vector>
 #include <exception>
 
+#include <filesystem>
+
 extern "C"
 {
     using namespace std;
@@ -157,12 +159,12 @@ extern "C"
 
     void BMP::setPixel(uint32_t x, uint32_t y, uint8_t value)
     {
-        if(colors.length() == 0)
+        if (colors.length() == 0)
         {
             __throw_invalid_argument("No color palette.");
         }
 
-        if(bitDepth > 8)
+        if (bitDepth > 8)
         {
             __throw_invalid_argument("Cant assign by index");
         }
@@ -172,7 +174,7 @@ extern "C"
 
     void BMP::setPixel(uint32_t x, uint32_t y, const Color c)
     {
-        if(bitDepth != 24)
+        if (bitDepth != 24)
         {
             __throw_invalid_argument("Don't use a Color object. Use an index");
         }
@@ -180,21 +182,16 @@ extern "C"
         memcpy((char *)data + ((x * width + y) * sizeof(Color)), &c, sizeof(Color));
     }
 
-    void BMP::toFile(string fileName, bool silent)
+    void BMP::toFile(std::filesystem::path fileName, bool silent)
     {
-        if (!silent)
-            cout << "\33[2K\r"
-                 << "Creating File";
-
         // A link the guide I'm using for help
         // https://www.youtube.com/watch?v=vqT5j38bWGg
         // cout << sizeof(int) << endl;
         std::ofstream f;
-        f.open(fileName + ".bmp", std::ios::out | std::ios::binary);
+
+        f.open(fileName.string(), std::ios::out | std::ios::binary);
         if (!f)
-            cout << "\33[2K\r"
-                 << "Failed to open file!"
-                 << endl;
+            runtime_error("Failed to open file.");
 
         // Padding
         int paddingSize = 4 - (width * (bitDepth / 8) % 4);
@@ -363,41 +360,58 @@ extern "C"
                     // Color cl = Color(255, 255, 255);
 
                     // Color *dataCut = &cl;
-                    const Color *dataCut = ((Color*)data + i * width + j);
+                    const Color *dataCut = ((Color *)data + i * width + j);
                     memcpy(&row[i * 3], &dataCut->b, sizeof(uint8_t));
                     memcpy(&row[i * 3 + 1], &dataCut->g, sizeof(uint8_t));
                     memcpy(&row[i * 3 + 2], &dataCut->r, sizeof(uint8_t));
-                    // row[i * 3] = static_cast<uint8_t>(dataCut.b);
-                    // row[i * 3 + 1] = static_cast<uint8_t>(dataCut.g);
-                    // row[i * 3 + 2] = static_cast<uint8_t>(dataCut.r);
                 }
                 // cout << "after 1" << endl;
             }
             // row[0] = static_cast<unsigned char>(1 * 255.0f);
             f.write(reinterpret_cast<char *>(row), rowSizeBytes);
         }
-
-        // delete[] row;
         f.close();
-
-        if (!silent)
-        {
-            cout << "\33[2K\r"
-                 << "File created";
-            cout << "\33[2K\r";
-            cout << "File Size: " << fileSize << endl;
-        }
+        cout << "File created" << endl;
+        cout << "File Size: " << fileSize << endl;
     }
 
     void BMP::toConsole()
     {
-        for (unsigned int i = 0; i < width; i++)
+        switch (bitDepth)
         {
-            for (unsigned int j = 0; j < height; j++)
+        case 1:
+        case 2:
+        case 4:
+        case 8:
+            for (unsigned int i = 0; i < width; i++)
             {
-                cout << *(int *)(data + (i * width + j));
+                for (unsigned int j = 0; j < height; j++)
+                {
+                    cout << *(uint8_t *)(data + (i * width + j));
+                }
+                cout << endl;
             }
-            cout << endl;
+            break;
+        case 24:
+            // cout << ((Color *)data)->r << endl;
+            // for (unsigned int i = 0; i < width; i++)
+            // {
+            //     for (unsigned int j = 0; j < height; j++)
+            //     {
+            //         cout << ((Color *)(data + (i * width + j)))->r
+            //              << ((Color *)(data + (i * width + j)))->g 
+            //              << ((Color *)(data + (i * width + j)))->b;
+            //     }
+            //     cout << endl;
+            // }
+
+            break;
+        case 32:
+
+            break;
+
+        default:
+            throw "Bit Depth not handled.";
         }
     }
 }
