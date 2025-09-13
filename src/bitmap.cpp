@@ -1,5 +1,6 @@
 #include "bitmap.h"
 
+#include <cstring>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -92,12 +93,16 @@ BMP::BMP(int32_t w, int32_t h, uint16_t bitDepth)
     case 8:
         colors_ = ColorMap(kBitDepth);
         data_ = malloc(kWidth * kHeight * sizeof(uint8_t));
+        memset(data_, 0, kWidth * kHeight * sizeof(uint8_t));
+
         break;
     case 24:
         data_ = malloc(kWidth * kHeight * sizeof(Color));
+        memset(data_, 0, kWidth * kHeight * sizeof(Color));
         break;
     case 32:
         data_ = malloc(kWidth * kHeight * sizeof(ColorRGBA));
+        memset(data_, 0, kWidth * kHeight * sizeof(ColorRGBA));
         break;
 
     default:
@@ -157,7 +162,7 @@ void BMP::SetPixel(int32_t x, int32_t y, uint8_t value)
         throw runtime_error("Can't assign by index");
 
     // Copy the element into the array
-    memcpy((char *)data_ + ((x * kWidth + y) * sizeof(uint8_t)), &value, sizeof(uint8_t));
+    memcpy((uint8_t *)data_ + ((x * kWidth + y) * sizeof(uint8_t)), &value, sizeof(uint8_t));
 }
 
 void BMP::SetPixel(int32_t x, int32_t y, const Color c)
@@ -188,8 +193,8 @@ void BMP::ToFile(std::filesystem::path file_name, bool silent)
 
     const int padding_start_bit = ((row_size - 4) * 8) + (kWidth * kBitDepth % 32);
 
-    const uint32_t file_size = file_header_size + info_header_size + colors_.length() + raw_data_size;
-    const uint32_t pixel_data_offset = file_header_size + info_header_size + colors_.length();
+    const uint32_t file_size = file_header_size + info_header_size + colors_.length() * 4 + raw_data_size;
+    const uint32_t pixel_data_offset = file_header_size + info_header_size + colors_.length() * 4;
 
     unsigned char *file_header = new unsigned char[file_header_size];
 
@@ -289,7 +294,7 @@ void BMP::ToFile(std::filesystem::path file_name, bool silent)
         // truncates
         // clear bytes from memory to be reused
         for (int i = 0; i < row_size; i++)
-            row[i] = 0;
+            row[i] = 0x00;
         switch (kBitDepth)
         {
         case 1:
@@ -305,14 +310,8 @@ void BMP::ToFile(std::filesystem::path file_name, bool silent)
                 {
 
                     // black magic fuckery
-                    uint8_t data = *((uint8_t *)data_ + (i * kWidth + j) * sizeof(uint8_t));
+                    uint8_t data = *((uint8_t *)data_ + (i * kWidth + j));
 
-                    // have an unsafe check
-                    if (data > colors_.MAXIMUM_COLORS)
-                        data = 0;
-
-                    // truncate then add 7
-                    // start from the highest and go down
                     int offset = (8 - kBitDepth) - (i * kBitDepth % 8);
                     bits |= (data << offset);
                 }
@@ -320,7 +319,6 @@ void BMP::ToFile(std::filesystem::path file_name, bool silent)
                 {
                     bits <<= kBitDepth;
                 }
-
                 row[(i * kBitDepth) / 8] = bits;
             }
             break;
@@ -359,11 +357,12 @@ void BMP::Print()
     case 4:
     case 8:
     {
-        for (unsigned int i = 0; i < kWidth; i++)
+        for (int32_t i = 0; i < kWidth; i++)
         {
-            for (unsigned int j = 0; j < kHeight; j++)
+            for (int32_t j = 0; j < kHeight; j++)
             {
-                cout << *reinterpret_cast<int *>(data_ + (i * kWidth + j));
+                // black magic
+                cout << (int)((char *)data_)[i * kWidth + j] << " ";
             }
             cout << endl;
         }
