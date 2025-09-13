@@ -26,16 +26,16 @@ int main()
     }
     
     BMP map(10, 10, 1);
-    map.addColor(0, 0, 0);
-    map.addColor(255, 255, 255);
+    map.AddColor(0, 0, 0);
+    map.AddColor(255, 255, 255);
     for (int i = 0; i < 10; i++)
         for (int j = 0; j < 10; j++)
         {
-            map.setPixel(i, j, 0);
+            map.SetPixel(i, j, 0);
         }
-    map.setPixel(1, 0, 1);
+    map.SetPixel(1, 0, 1);
 
-    map.toFile(output_dir.append("test.bmp"));
+    map.ToFile(output_dir.append("test.bmp"));
 
     return 0;
 }

@@ -3,26 +3,25 @@
 // For this stuff, I used the link below
 // https://nullprogram.com/blog/2021/05/31/
 #if defined(BUILD_DLL)
-    #if defined(_WIN32)
-        #define BITMAP_API __declspec(dllexport)
-    #elif defined(__ELF__)
-        #define BITMAP_API __attribute__((visibility("default")))
-    #else
-        #define BITMAP_API
-    #endif
+#if defined(_WIN32)
+#define BITMAP_API __declspec(dllexport)
+#elif defined(__ELF__)
+#define BITMAP_API __attribute__((visibility("default")))
 #else
-    #if defined(_WIN32)
-        #define BITMAP_API __declspec(dllimport)
-    #else
-        #define BITMAP_API
-    #endif
+#define BITMAP_API
+#endif
+#else
+#if defined(_WIN32)
+#define BITMAP_API __declspec(dllimport)
+#else
+#define BITMAP_API
+#endif
 #endif
 
 #include <string>
 #include <vector>
 #include <cstdint>
 #include <filesystem>
-
 
 extern "C"
 {
@@ -53,7 +52,7 @@ extern "C"
         ColorMap(unsigned int bitDepth, std::vector<ColorRGBA> colors);
 
         // Returns the number of assigned colors
-        auto length();
+        uint32_t length();
 
         // Return by reference
         ColorRGBA &getColor(unsigned int index);
@@ -71,32 +70,33 @@ extern "C"
 
     class BITMAP_API BMP
     {
-        const uint32_t width;
-        const uint32_t height;
-        const uint8_t bitDepth;
-        ColorMap colors;
-        uint8_t sizePixelBits;
-
     public:
-        void *data;
+        const int32_t kWidth;
+        const int32_t kHeight;
+        const int16_t kBitDepth;
 
-        BMP(uint32_t width, uint32_t height, uint8_t bitDepth = 1);
+        BMP(int32_t width, int32_t height, uint16_t bit_depth = 1);
         ~BMP();
 
-        // Return by reference
-        Color &getColor(unsigned int index);
+        void SetPixel(int32_t x, int32_t y, Color);
+        void SetPixel(int32_t x, int32_t y, uint8_t index);
 
-        // Add a color
-        Color &addColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0);
+        void ToFile(std::filesystem::path, bool silent = false);
+        void Print();
 
-        void toFile(std::filesystem::path fileName, bool silent = false);
-
-        void toConsole();
+        // ColorMap Abstraction
+        Color get_color(uint8_t index);
+        void set_color(uint8_t index, Color);
+        void set_color(uint8_t index, ColorRGBA);
+        void AddColor(Color);
+        void AddColor(ColorRGBA);
+        void AddColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0);
 
         // setters
-        void setPixel(uint32_t x, uint32_t y, Color c);
-        void setPixel(uint32_t x, uint32_t y, uint8_t value);
-
         // getters
+
+    private:
+        void *data_;
+        ColorMap colors_;
     };
 }

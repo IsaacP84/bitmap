@@ -4,25 +4,9 @@
 #include <fstream>
 #include <vector>
 #include <exception>
-
 #include <filesystem>
 
 using namespace std;
-
-struct InfoHeader
-{
-    uint32_t biSize;
-    int32_t biWidth;
-    int32_t biHeight;
-    uint16_t biPlanes;
-    uint16_t biBitCount; // This defines the bit depth
-    uint32_t biCompression;
-    uint32_t biSizeImage;
-    int32_t biXPelsPerMeter;
-    int32_t biYPelsPerMeter;
-    uint32_t biClrUsed;
-    uint32_t biClrImportant;
-};
 
 Color::Color(uint8_t r, uint8_t g, uint8_t b)
 {
@@ -30,12 +14,6 @@ Color::Color(uint8_t r, uint8_t g, uint8_t b)
     this->g = g;
     this->b = b;
 }
-
-// std::ostream &operator<<(std::ostream &os, const Color &data)
-// {
-//     os << '(' << data.r << ',' << data.g << ',' << data.b << ')';
-//     return os;
-// }
 
 ColorRGBA::ColorRGBA(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
@@ -45,15 +23,7 @@ ColorRGBA::ColorRGBA(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
     this->a = a;
 }
 
-// std::ostream &operator<<(std::ostream &out, const ColorRGBA &data)
-// {
-//     // out << static_cast<const Color &>(data);
-//     out << '(' << data.r << ',' << data.g << ',' << data.b << ',' << data.a << ')';
-//     return out;
-// }
-
 // ColorMap
-
 ColorMap::ColorMap()
 {
     MAXIMUM_COLORS = 1 << bitDepth;
@@ -88,7 +58,7 @@ ColorRGBA &ColorMap::getColor(unsigned int index)
     return colors[index];
 }
 
-auto ColorMap::length()
+uint32_t ColorMap::length()
 {
     return colors.size();
 }
@@ -106,290 +76,294 @@ Color &ColorMap::operator[](unsigned int index)
 }
 
 // BMP
-
-BMP::BMP(uint32_t w, uint32_t h, uint8_t bitDepth)
-    : width(w), height(h), bitDepth(bitDepth)
+BMP::BMP(int32_t w, int32_t h, uint16_t bitDepth)
+    : kWidth(w), kHeight(h), kBitDepth(bitDepth)
 {
-    switch (bitDepth)
+    switch (kBitDepth)
     {
     case 1:
     case 2:
     case 4:
     case 8:
-        colors = ColorMap(bitDepth);
-        data = malloc(width * height * sizeof(uint8_t));
+        colors_ = ColorMap(kBitDepth);
+        data_ = malloc(kWidth * kHeight * sizeof(uint8_t));
         break;
     case 24:
-        data = malloc(width * height * sizeof(Color));
+        data_ = malloc(kWidth * kHeight * sizeof(Color));
         break;
     case 32:
-        data = malloc(width * height * sizeof(Color));
+        data_ = malloc(kWidth * kHeight * sizeof(ColorRGBA));
         break;
 
     default:
-        throw "Bit Depth not handled.";
+        throw invalid_argument("Bit Depth not handled.");
     }
 
-    if (data == NULL)
-    {
-        perror("Failed to allocate memory for data");
-        exit(EXIT_FAILURE);
-    }
+    if (data_ == NULL)
+        throw runtime_error("Failed to allocate memory for data");
 
     // no type checking for high bitdepths
 }
 
 BMP::~BMP()
 {
-    free(data);
-    data = NULL;
+    free(data_);
 }
 
-Color &BMP::addColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+Color BMP::get_color(uint8_t index)
 {
-    return colors.addColor(r, g, b, a);
+    return colors_[index];
 }
 
-Color &BMP::getColor(unsigned int index)
+void BMP::set_color(uint8_t index, Color c)
 {
-    return colors[index];
+    colors_.setColor(index, ColorRGBA(c.r, c.g, c.b));
 }
 
-void BMP::setPixel(uint32_t x, uint32_t y, uint8_t value)
+void BMP::set_color(uint8_t index, ColorRGBA c)
 {
-    if (colors.length() == 0)
-    {
-        __throw_invalid_argument("No color palette.");
-    }
+    colors_.setColor(index, c);
+}
 
-    if (bitDepth > 8)
-    {
-        __throw_invalid_argument("Cant assign by index");
-    }
+void BMP::AddColor(Color c)
+{
+    colors_.addColor(c.r, c.g, c.b);
+}
+
+void BMP::AddColor(ColorRGBA c)
+{
+    colors_.addColor(c.r, c.g, c.b, c.a);
+}
+
+void BMP::AddColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+{
+    colors_.addColor(r, g, b, a);
+}
+
+void BMP::SetPixel(int32_t x, int32_t y, uint8_t value)
+{
+    if (colors_.length() == 0)
+        throw invalid_argument("No color palette.");
+
+    if (colors_.length() < value)
+        throw range_error("Color index out of range");
+
+    if (kBitDepth > 8)
+        throw runtime_error("Can't assign by index");
+
     // Copy the element into the array
-    memcpy((char *)data + ((x * width + y) * sizeof(uint8_t)), &value, sizeof(uint8_t));
+    memcpy((char *)data_ + ((x * kWidth + y) * sizeof(uint8_t)), &value, sizeof(uint8_t));
 }
 
-void BMP::setPixel(uint32_t x, uint32_t y, const Color c)
+void BMP::SetPixel(int32_t x, int32_t y, const Color c)
 {
-    if (bitDepth != 24)
-    {
-        __throw_invalid_argument("Don't use a Color object. Use an index");
-    }
+    if (kBitDepth != 24)
+        throw invalid_argument("Don't use a Color object. Use an index");
+
     // Copy the element into the array
-    memcpy((char *)data + ((x * width + y) * sizeof(Color)), &c, sizeof(Color));
+    memcpy((char *)data_ + ((x * kWidth + y) * sizeof(Color)), &c, sizeof(Color));
 }
 
-void BMP::toFile(std::filesystem::path fileName, bool silent)
+void BMP::ToFile(std::filesystem::path file_name, bool silent)
 {
-    // A link the guide I'm using for help
-    // https://www.youtube.com/watch?v=vqT5j38bWGg
-    // cout << sizeof(int) << endl;
     std::ofstream f;
 
-    f.open(fileName.string(), std::ios::out | std::ios::binary);
-    if (!f)
-        runtime_error("Failed to open file.");
+    f.open(file_name.string(), std::ios::out | std::ios::binary);
+    if (!f.is_open())
+        throw runtime_error("Failed to open file: " + file_name.string());
 
-    // Padding
-    int paddingSize = 4 - (width * (bitDepth / 8) % 4);
+    const int file_header_size = 14;
 
-    const int fileHeaderSize = 14;
     // BITMAPINFOHEADER
-    const int informationHeaderSize = 40;
-    int colorMapSize = 0;
-    const int rowSizeBytes = (width * bitDepth + 31) / 32 * 4;
-    const unsigned int rawDataSize = rowSizeBytes * height;
+    const int info_header_size = 40;
 
-    if (colors)
-    {
-        colorMapSize = colors.length() * 4;
-    }
+    // store in bytes
+    const int row_size = (kWidth * kBitDepth + 31) / 32 * 4;
+    uint32_t raw_data_size = row_size * kHeight;
 
-    int paddingStartBit = ((rowSizeBytes - 4) * 8) + (width * bitDepth % 32);
-    // int paddingSizeBits = 32 - (width * bitDepth % 32);
+    const int padding_start_bit = ((row_size - 4) * 8) + (kWidth * kBitDepth % 32);
 
-    const unsigned int fileSize = fileHeaderSize + informationHeaderSize + colorMapSize + rawDataSize;
+    const uint32_t file_size = file_header_size + info_header_size + colors_.length() + raw_data_size;
+    const uint32_t pixel_data_offset = file_header_size + info_header_size + colors_.length();
 
-    unsigned int pixelDataOffset = fileHeaderSize + informationHeaderSize + colorMapSize;
+    unsigned char *file_header = new unsigned char[file_header_size];
 
-    unsigned char *fileHeader = new unsigned char[fileHeaderSize];
     // File type
-    fileHeader[0] = 'B';
-    fileHeader[1] = 'M';
+    file_header[0] = 'B';
+    file_header[1] = 'M';
     // File Size in bytes
-    fileHeader[2] = fileSize;
-    fileHeader[3] = fileSize >> 8;
-    fileHeader[4] = fileSize >> 16;
-    fileHeader[5] = fileSize >> 24;
+    file_header[2] = file_size;
+    file_header[3] = file_size >> 8;
+    file_header[4] = file_size >> 16;
+    file_header[5] = file_size >> 24;
     // Reserved 1
-    fileHeader[6] = 0;
-    fileHeader[7] = 0;
+    file_header[6] = 0;
+    file_header[7] = 0;
     // Reserved 2
-    fileHeader[8] = 0;
-    fileHeader[9] = 0;
+    file_header[8] = 0;
+    file_header[9] = 0;
     // Pixel Data Offset
-    fileHeader[10] = pixelDataOffset;
-    fileHeader[11] = pixelDataOffset >> 8;
-    fileHeader[12] = pixelDataOffset >> 16;
-    fileHeader[13] = pixelDataOffset >> 24;
+    file_header[10] = pixel_data_offset;
+    file_header[11] = pixel_data_offset >> 8;
+    file_header[12] = pixel_data_offset >> 16;
+    file_header[13] = pixel_data_offset >> 24;
 
-    f.write(reinterpret_cast<char *>(fileHeader), fileHeaderSize);
-    delete[] fileHeader;
+    f.write(reinterpret_cast<char *>(file_header), file_header_size);
+    delete[] file_header;
 
-    unsigned char *informationHeader = new unsigned char[informationHeaderSize];
+    uint8_t *information_header = new unsigned char[info_header_size];
 
-    // Size of header
-    informationHeader[0] = informationHeaderSize;
-    informationHeader[1] = 0;
-    informationHeader[2] = 0;
-    informationHeader[3] = 0;
-    // Width in pixels
-    informationHeader[4] = width;
-    informationHeader[5] = width >> 8;
-    informationHeader[6] = width >> 16;
-    informationHeader[7] = width >> 24;
-    // Height in pixels
-    informationHeader[8] = height;
-    informationHeader[9] = height >> 8;
-    informationHeader[10] = height >> 16;
-    informationHeader[11] = height >> 24;
-    // # of Color planes
-    informationHeader[12] = 1;
-    informationHeader[13] = 0;
-    // # of Bits Per Pixel (Set to 1, 2, 4, 8, 16, 24, or 32)
-    informationHeader[14] = bitDepth;
-    informationHeader[15] = 0;
-    // Compression Method
-    informationHeader[16] = 0;
-    informationHeader[17] = 0;
-    informationHeader[18] = 0;
-    informationHeader[19] = 0;
-    // Image Size
-    informationHeader[20] = rawDataSize;
-    informationHeader[21] = rawDataSize >> 8;
-    informationHeader[22] = rawDataSize >> 16;
-    informationHeader[23] = rawDataSize >> 24;
-    // Horizontal Resolution (Signed integer)
-    informationHeader[24] = 0;
-    informationHeader[25] = 0;
-    informationHeader[26] = 0;
-    informationHeader[27] = 0;
-    // Vertical Resolution (Signed integer)
-    informationHeader[28] = 0;
-    informationHeader[29] = 0;
-    informationHeader[30] = 0;
-    informationHeader[31] = 0;
-    // # of Colors in Color Palette
-    informationHeader[32] = colors.length();
-    informationHeader[33] = colors.length() >> 8;
-    informationHeader[34] = colors.length() >> 16;
-    informationHeader[35] = colors.length() >> 24;
-    // # of Important Colors used
-    informationHeader[36] = 0;
-    informationHeader[37] = 0;
-    informationHeader[38] = 0;
-    informationHeader[39] = 0;
+    // Size of header (uint32_t)
+    information_header[0] = info_header_size;
+    information_header[1] = 0;
+    information_header[2] = 0;
+    information_header[3] = 0;
+    // Width in pixels (int32_t)
+    information_header[4] = kWidth;
+    information_header[5] = kWidth >> 8;
+    information_header[6] = kWidth >> 16;
+    information_header[7] = kWidth >> 24;
+    // Height in pixels (int32_t)
+    information_header[8] = kHeight;
+    information_header[9] = kHeight >> 8;
+    information_header[10] = kHeight >> 16;
+    information_header[11] = kHeight >> 24;
+    // # of Color planes (uint16_t)
+    information_header[12] = 1;
+    information_header[13] = 0;
+    // # of Bits Per Pixel (uint16_t)
+    information_header[14] = kBitDepth;
+    information_header[15] = kBitDepth << 8;
+    // Compression Method (uint32_t)
+    information_header[16] = 0;
+    information_header[17] = 0;
+    information_header[18] = 0;
+    information_header[19] = 0;
+    // Image Size (uint32_t)
+    information_header[20] = raw_data_size;
+    information_header[21] = raw_data_size >> 8;
+    information_header[22] = raw_data_size >> 16;
+    information_header[23] = raw_data_size >> 24;
+    // Horizontal Resolution (int32_t)
+    information_header[24] = 0;
+    information_header[25] = 0;
+    information_header[26] = 0;
+    information_header[27] = 0;
+    // Vertical Resolution (int32_t)
+    information_header[28] = 0;
+    information_header[29] = 0;
+    information_header[30] = 0;
+    information_header[31] = 0;
+    // # of Colors in Color Palette (uint32_t)
+    information_header[32] = colors_.length();
+    information_header[33] = colors_.length() >> 8;
+    information_header[34] = colors_.length() >> 16;
+    information_header[35] = colors_.length() >> 24;
+    // # of Important Colors used (uint32_t)
+    information_header[36] = 0;
+    information_header[37] = 0;
+    information_header[38] = 0;
+    information_header[39] = 0;
 
-    f.write(reinterpret_cast<char *>(informationHeader), informationHeaderSize);
-    delete[] informationHeader;
+    f.write(reinterpret_cast<char *>(information_header), info_header_size);
+    delete[] information_header;
 
-    if (colors)
+    if (colors_)
     {
-        for (unsigned int i = 0; i < colors.length(); i++)
+        for (unsigned int i = 0; i < colors_.length(); i++)
         {
-            f.write(reinterpret_cast<char *>(&colors[i]), sizeof(ColorRGBA));
+            f.write(reinterpret_cast<char *>(&colors_[i]), sizeof(ColorRGBA));
         }
     }
 
-    // unsigned char *row = new unsigned char[rowSizeBytes];
     // should theoretically be faster because this is on the stack
-    uint8_t row[rowSizeBytes];
+    uint8_t row[row_size];
 
-    for (unsigned int j = 0; j < height; j++)
+    for (int32_t j = 0; j < kHeight; j++)
     {
-
-        // for (unsigned int i = paddingStartBit; i < rowSizeBytes; i++)
-        //     row[i] = 0;
         // truncates
         // clear bytes from memory to be reused
-        for (unsigned int i = 0; i < rowSizeBytes; i++)
+        for (int i = 0; i < row_size; i++)
             row[i] = 0;
-
-        if (bitDepth <= 8)
+        switch (kBitDepth)
         {
-            for (unsigned int i = 0; i < width; i++)
+        case 1:
+        case 2:
+        case 4:
+        case 8:
+        {
+            for (int32_t i = 0; i < kWidth; i++)
             {
-                uint8_t bits = row[(i * bitDepth) / 8];
-                // do some checks on the data;
+                uint8_t bits = row[(i * kBitDepth) / 8];
 
-                if ((i * bitDepth) < paddingStartBit)
+                if ((i * kBitDepth) < padding_start_bit)
                 {
 
-                    // uint8_t dataCut = *(int*)data[i * width + j];
                     // black magic fuckery
-                    uint8_t dataCut = *((uint8_t *)data + (i * width + j) * sizeof(uint8_t));
+                    uint8_t data = *((uint8_t *)data_ + (i * kWidth + j) * sizeof(uint8_t));
 
-                    // cout << 7 - (i * bitDepth % 8) << endl;
                     // have an unsafe check
-                    if (dataCut > colors.MAXIMUM_COLORS)
-                    {
-                        dataCut = -1;
-                    }
+                    if (data > colors_.MAXIMUM_COLORS)
+                        data = 0;
 
                     // truncate then add 7
                     // start from the highest and go down
-                    int offset = (8 - bitDepth) - (i * bitDepth % 8);
-                    bits |= (dataCut << offset);
+                    int offset = (8 - kBitDepth) - (i * kBitDepth % 8);
+                    bits |= (data << offset);
                 }
                 else
                 {
-                    bits <<= bitDepth;
+                    bits <<= kBitDepth;
                 }
 
-                row[(i * bitDepth) / 8] = bits;
+                row[(i * kBitDepth) / 8] = bits;
             }
+            break;
         }
-        else
+        case 24:
         {
-            for (uint32_t i = 0; i < width; i++)
+            for (uint32_t i = 0; i < kWidth; i++)
             {
-                // Color cl = Color(rand() % 255, rand() % 255, rand() % 255);
-                // Color cl = Color(255, 255, 255);
-
-                // Color *dataCut = &cl;
-                const Color *dataCut = ((Color *)data + i * width + j);
-                memcpy(&row[i * 3], &dataCut->b, sizeof(uint8_t));
-                memcpy(&row[i * 3 + 1], &dataCut->g, sizeof(uint8_t));
-                memcpy(&row[i * 3 + 2], &dataCut->r, sizeof(uint8_t));
+                const Color *color = ((Color *)data_ + i * kWidth + j);
+                memcpy(&row[i * 3], &color->b, sizeof(uint8_t));
+                memcpy(&row[i * 3 + 1], &color->g, sizeof(uint8_t));
+                memcpy(&row[i * 3 + 2], &color->r, sizeof(uint8_t));
             }
-            // cout << "after 1" << endl;
+            break;
         }
-        // row[0] = static_cast<unsigned char>(1 * 255.0f);
-        f.write(reinterpret_cast<char *>(row), rowSizeBytes);
+        case 32:
+        {
+            throw runtime_error("Not implemented yet");
+            break;
+        }
+        }
+        f.write(reinterpret_cast<char *>(row), row_size);
     }
+
     f.close();
-    cout << "File created" << endl;
-    cout << "File Size: " << fileSize << endl;
+    cout << "File created: " + file_name.string() << endl;
+    cout << "File Size: " << file_size << endl;
 }
 
-void BMP::toConsole()
+void BMP::Print()
 {
-    switch (bitDepth)
+    switch (kBitDepth)
     {
     case 1:
     case 2:
     case 4:
     case 8:
-        for (unsigned int i = 0; i < width; i++)
+    {
+        for (unsigned int i = 0; i < kWidth; i++)
         {
-            for (unsigned int j = 0; j < height; j++)
+            for (unsigned int j = 0; j < kHeight; j++)
             {
-                cout << *(uint8_t *)(data + (i * width + j));
+                cout << *reinterpret_cast<int *>(data_ + (i * kWidth + j));
             }
             cout << endl;
         }
         break;
+    }
     case 24:
         // cout << ((Color *)data)->r << endl;
         // for (unsigned int i = 0; i < width; i++)
@@ -402,13 +376,13 @@ void BMP::toConsole()
         //     }
         //     cout << endl;
         // }
-
+        throw runtime_error("Bit Depth not handled.");
         break;
     case 32:
-
+        throw runtime_error("Bit Depth not handled.");
         break;
 
     default:
-        throw "Bit Depth not handled.";
+        throw runtime_error("Bit Depth not handled.");
     }
 }
