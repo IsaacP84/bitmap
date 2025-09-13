@@ -58,6 +58,11 @@ ColorRGBA &ColorMap::getColor(unsigned int index)
     return colors[index];
 }
 
+void ColorMap::setColor(unsigned int index, ColorRGBA color)
+{
+    colors[index] = color;
+}
+
 uint32_t ColorMap::length()
 {
     return colors.size();
