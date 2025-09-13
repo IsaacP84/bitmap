@@ -15,4 +15,9 @@ A simple project for working with bitmap images.
     ```
 2. Follow the instructions in the documentation to build and run the project.
 
+
+## Future
+1. Add data in the padding
+2. Read data from the padding 
+3. Encrypt data possibly
 <!-- ## License -->
