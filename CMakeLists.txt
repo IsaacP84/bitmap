@@ -16,9 +16,9 @@ add_subdirectory(src)
 # The executable app is here
 add_subdirectory(app)
 
-include(CTest)
-if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME))
-        add_subdirectory(test)        
+if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME) 
+    AND (CMAKE_BUILD_TYPE STREQUAL Debug))
+    add_subdirectory(test)        
 endif()
 
 

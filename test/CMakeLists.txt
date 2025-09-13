@@ -13,6 +13,7 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(
     TestInitiator
+    testBitDepth_1.cpp
     testBitDepth_24.cpp
 )
 
@@ -24,16 +25,28 @@ target_include_directories(TestInitiator PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(TestInitiator PRIVATE bitmap)
 target_link_libraries(TestInitiator PRIVATE GTest::gtest GTest::gtest_main)
 
+
+
+include(CTest)
 include(GoogleTest)
 
 enable_testing()
 
-gtest_discover_tests(TestInitiator)
+# gtest_discover_tests(TestInitiator)
 
 
 
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+add_custom_command(
+    TARGET TestInitiator
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+            "$<TARGET_FILE_DIR:TestInitiator>/assets"
+    COMMENT "Copying data directory to build location"
+)
 
 
 add_test(

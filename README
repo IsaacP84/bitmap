@@ -1,0 +1,18 @@
+# Bitmap
+
+A simple project for working with bitmap images.
+
+## Features
+
+- Save bitmap files
+- Manipulate pixel data
+
+## Getting Started
+
+1. Clone the repository:
+    ```
+    git clone https://github.com/IsaacP84/bitmap.git
+    ```
+2. Follow the instructions in the documentation to build and run the project.
+
+<!-- ## License -->
