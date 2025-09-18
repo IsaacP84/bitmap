@@ -2,6 +2,7 @@
 
 // For this stuff, I used the link below
 // https://nullprogram.com/blog/2021/05/31/
+
 #if defined(BUILD_DLL)
 #if defined(_WIN32)
 #define BITMAP_API __declspec(dllexport)
@@ -25,6 +26,16 @@
 
 extern "C"
 {
+    enum BitDepth
+    {
+        BIT_DEPTH_1 = 1,
+        BIT_DEPTH_2 = 2,
+        BIT_DEPTH_4 = 4,
+        BIT_DEPTH_8 = 8,
+        // BIT_DEPTH_16 = 16,
+        BIT_DEPTH_24 = 24,
+        BIT_DEPTH_32 = 32
+    };
     struct BITMAP_API Color
     {
         uint8_t b;
@@ -71,18 +82,17 @@ extern "C"
     class BITMAP_API BMP
     {
     public:
+        static std::unique_ptr<BMP> Create(int32_t width, int32_t height, BitDepth bitDepth);
+
         const int32_t kWidth;
         const int32_t kHeight;
         const int16_t kBitDepth;
 
-        BMP(int32_t width, int32_t height, uint16_t bit_depth = 1);
-        ~BMP();
-
-        void SetPixel(int32_t x, int32_t y, Color);
-        void SetPixel(int32_t x, int32_t y, uint8_t index);
+        virtual void SetPixel(int32_t x, int32_t y, const Color) = 0;
+        virtual void SetPixel(int32_t x, int32_t y, uint8_t index) = 0;
+        virtual void Print() = 0;
 
         void ToFile(std::filesystem::path, bool silent = false);
-        void Print();
 
         // ColorMap Abstraction
         Color get_color(uint8_t index);
@@ -95,7 +105,11 @@ extern "C"
         // setters
         // getters
 
-    private:
+        virtual ~BMP() { free(data_); }
+
+    protected:
+        BMP(int32_t width, int32_t height, int16_t bitDepth) : kWidth(width), kHeight(height), kBitDepth(bitDepth) {};
+        virtual void WriteDataImpl(std::ofstream &f, int row_size) = 0;
         void *data_;
         ColorMap colors_;
     };

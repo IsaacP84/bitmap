@@ -25,14 +25,15 @@ protected:
     uint8_t fileIncrementor = 0;
 
     
-    BMP m0_ = BMP(10, 10, 24);
-    BMP m1_ = BMP(100, 100, 24);
-    BMP m2_ = BMP(1000, 1000, 24);
+    std::unique_ptr<BMP> m0_ = BMP::Create(10, 10, BIT_DEPTH_24);
+    std::unique_ptr<BMP> m1_ = BMP::Create(100, 100, BIT_DEPTH_24);
+    std::unique_ptr<BMP> m2_ = BMP::Create(1000, 1000, BIT_DEPTH_24);
 };
 
 TEST_F(BitmapTest, Initialization)
 {
-    BMP map(10, 10, 24);
+    std::unique_ptr<BMP> map = BMP::Create(10, 10, BIT_DEPTH_24);
+    ASSERT_NE(map, nullptr);
 }
 
 TEST_F(BitmapTest, WriteToFileSmall)
@@ -40,14 +41,14 @@ TEST_F(BitmapTest, WriteToFileSmall)
     for (int i = 0; i < 10; i++)
         for (int j = 0; j < 10; j++)
         {
-            m0_.SetPixel(i, j, Color(255, 255, 255));
+            m0_->SetPixel(i, j, Color(255, 255, 255));
         }
-    m0_.SetPixel(1, 0, Color(0, 0, 0));
+    m0_->SetPixel(1, 0, Color(0, 0, 0));
 
     std::string file_name = "bitDepth_24_test";
     file_name += (fileIncrementor++);
     file_name += ".bmp";
-    m0_.ToFile(std::filesystem::path(output_dir).append(file_name));
+    m0_->ToFile(std::filesystem::path(output_dir).append(file_name));
 }
 
 TEST_F(BitmapTest, WriteToFileMedium)
@@ -55,14 +56,14 @@ TEST_F(BitmapTest, WriteToFileMedium)
     for (int i = 0; i < 100; i++)
         for (int j = 0; j < 100; j++)
         {
-            m1_.SetPixel(i, j, Color(255, 255, 255));
+            m1_->SetPixel(i, j, Color(255, 255, 255));
         }
-    m1_.SetPixel(1, 0, Color(0, 0, 0));
+    m1_->SetPixel(1, 0, Color(0, 0, 0));
 
     std::string file_name = "bitDepth_24_test";
     file_name += (fileIncrementor++);
     file_name += ".bmp";
-    m1_.ToFile(std::filesystem::path(output_dir).append(file_name));
+    m1_->ToFile(std::filesystem::path(output_dir).append(file_name));
 }
 
 TEST_F(BitmapTest, WriteToFileLarge)
@@ -70,12 +71,12 @@ TEST_F(BitmapTest, WriteToFileLarge)
     for (int i = 0; i < 1000; i++)
         for (int j = 0; j < 1000; j++)
         {
-            m2_.SetPixel(i, j, Color(255, 255, 255));
+            m2_->SetPixel(i, j, Color(255, 255, 255));
         }
-    m2_.SetPixel(1, 0, Color(0, 0, 0));
+    m2_->SetPixel(1, 0, Color(0, 0, 0));
 
     std::string file_name = "bitDepth_24_test";
     file_name += (fileIncrementor++);
     file_name += ".bmp";
-    m2_.ToFile(std::filesystem::path(output_dir).append(file_name));
+    m2_->ToFile(std::filesystem::path(output_dir).append(file_name));
 }

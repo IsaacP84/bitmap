@@ -9,115 +9,162 @@
 
 using namespace std;
 
-Color::Color(uint8_t r, uint8_t g, uint8_t b)
+class Bitmap8 : public BMP
 {
-    this->r = r;
-    this->g = g;
-    this->b = b;
-}
-
-ColorRGBA::ColorRGBA(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
-{
-    this->r = r;
-    this->g = g;
-    this->b = b;
-    this->a = a;
-}
-
-// ColorMap
-ColorMap::ColorMap()
-{
-    MAXIMUM_COLORS = 1 << bitDepth;
-    colors.reserve(MAXIMUM_COLORS);
-}
-
-ColorMap::ColorMap(unsigned int bitDepth)
-{
-    MAXIMUM_COLORS = 1 << bitDepth;
-    colors.reserve(MAXIMUM_COLORS);
-}
-
-ColorMap::ColorMap(unsigned int bitDepth, std::vector<ColorRGBA> colors)
-{
-    MAXIMUM_COLORS = 2 << bitDepth;
-    colors.reserve(MAXIMUM_COLORS);
-}
-
-ColorRGBA &ColorMap::addColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
-{
-    if (colors.size() + 1 > MAXIMUM_COLORS)
+public:
+    Bitmap8(int32_t width, int32_t height, int16_t bitDepth)
+        : BMP(width, height, bitDepth)
     {
-        throw std::length_error("Maximum Colors for this bit depth has been reached.");
-    }
-
-    colors.push_back(ColorRGBA(r, g, b, a));
-    return colors.back();
-}
-
-ColorRGBA &ColorMap::getColor(unsigned int index)
-{
-    return colors[index];
-}
-
-void ColorMap::setColor(unsigned int index, ColorRGBA color)
-{
-    colors[index] = color;
-}
-
-uint32_t ColorMap::length()
-{
-    return colors.size();
-}
-
-ColorMap::operator bool() const
-{
-    if (colors.size() > 0)
-        return true;
-    return false;
-}
-
-Color &ColorMap::operator[](unsigned int index)
-{
-    return colors[index];
-}
-
-// BMP
-BMP::BMP(int32_t w, int32_t h, uint16_t bitDepth)
-    : kWidth(w), kHeight(h), kBitDepth(bitDepth)
-{
-    switch (kBitDepth)
-    {
-    case 1:
-    case 2:
-    case 4:
-    case 8:
         colors_ = ColorMap(kBitDepth);
         data_ = malloc(kWidth * kHeight * sizeof(uint8_t));
         memset(data_, 0, kWidth * kHeight * sizeof(uint8_t));
 
-        break;
-    case 24:
+        if (data_ == NULL)
+            throw runtime_error("Failed to allocate memory for data");
+    }
+    void SetPixel(int32_t x, int32_t y, const Color) override;
+    void SetPixel(int32_t x, int32_t y, uint8_t index) override;
+    void WriteDataImpl(std::ofstream &f, int row_size) override;
+    void Print() override;
+};
+
+void Bitmap8::SetPixel(int32_t x, int32_t y, Color c)
+{
+    throw invalid_argument("Don't use a Color object. Use an index");
+}
+
+void Bitmap8::SetPixel(int32_t x, int32_t y, uint8_t index)
+{
+    if (colors_.length() == 0)
+        throw invalid_argument("No color palette.");
+
+    if (colors_.length() < index)
+        throw range_error("Color index out of range");
+
+    // Copy the element into the array
+    memcpy((uint8_t *)data_ + ((x * kWidth + y) * sizeof(uint8_t)), &index, sizeof(uint8_t));
+}
+
+void Bitmap8::WriteDataImpl(std::ofstream &f, int row_size)
+{
+    const int padding_start_bit = ((row_size - 4) * 8) + (kWidth * kBitDepth % 32);
+    uint8_t row[row_size];
+
+    for (int32_t j = 0; j < kHeight; j++)
+    {
+        // truncates
+        // clear bytes from memory to be reused
+        for (int i = 0; i < row_size; i++)
+            row[i] = 0x00;
+
+        for (int32_t i = 0; i < kWidth; i++)
+        {
+            uint8_t bits = row[(i * kBitDepth) / 8];
+
+            if ((i * kBitDepth) < padding_start_bit)
+            {
+                // black magic fuckery
+                uint8_t data = *((uint8_t *)data_ + (i * kWidth + j));
+
+                int offset = (8 - kBitDepth) - (i * kBitDepth % 8);
+                bits |= (data << offset);
+            }
+            else
+                bits <<= kBitDepth;
+
+            row[(i * kBitDepth) / 8] = bits;
+        }
+
+        f.write(reinterpret_cast<char *>(row), row_size);
+    }
+}
+
+void Bitmap8::Print()
+{
+    for (int32_t i = 0; i < kWidth; i++)
+    {
+        for (int32_t j = 0; j < kHeight; j++)
+        {
+            // black magic
+            cout << (int)((char *)data_)[i * kWidth + j] << " ";
+        }
+        cout << endl;
+    }
+}
+
+class Bitmap24 : public BMP
+{
+public:
+    Bitmap24(int32_t width, int32_t height, int16_t bitDepth)
+        : BMP(width, height, bitDepth)
+    {
+        colors_ = ColorMap(kBitDepth);
         data_ = malloc(kWidth * kHeight * sizeof(Color));
         memset(data_, 0, kWidth * kHeight * sizeof(Color));
-        break;
-    case 32:
-        data_ = malloc(kWidth * kHeight * sizeof(ColorRGBA));
-        memset(data_, 0, kWidth * kHeight * sizeof(ColorRGBA));
-        break;
 
+        if (data_ == NULL)
+            throw runtime_error("Failed to allocate memory for data");
+    }
+    void SetPixel(int32_t x, int32_t y, Color) override;
+    void SetPixel(int32_t x, int32_t y, uint8_t index) override;
+    void WriteDataImpl(std::ofstream &f, int row_size) override;
+    void Print() override;
+};
+
+void Bitmap24::SetPixel(int32_t x, int32_t y, Color c)
+{
+    memcpy((Color *)data_ + (x * kWidth + y), &c, sizeof(Color));
+}
+
+void Bitmap24::SetPixel(int32_t x, int32_t y, uint8_t index)
+{
+    throw invalid_argument("Don't use an index. Use a Color object");
+}
+
+void Bitmap24::WriteDataImpl(std::ofstream &f, int row_size)
+{
+    // should theoretically be faster because this is on the stack
+    uint8_t row[row_size];
+
+    for (int32_t j = 0; j < kHeight; j++)
+    {
+        // truncates
+        // clear bytes from memory to be reused
+        for (int i = 0; i < row_size; i++)
+            row[i] = 0x00;
+
+        for (uint32_t i = 0; i < kWidth; i++)
+        {
+            const Color *color = ((Color *)data_ + i * kWidth + j);
+            memcpy(&row[i * 3], &color->b, sizeof(uint8_t));
+            memcpy(&row[i * 3 + 1], &color->g, sizeof(uint8_t));
+            memcpy(&row[i * 3 + 2], &color->r, sizeof(uint8_t));
+        }
+        f.write(reinterpret_cast<char *>(row), row_size);
+    }
+}
+
+void Bitmap24::Print()
+{
+    throw runtime_error("Not implemented yet.");
+}
+
+std::unique_ptr<BMP>
+BMP::Create(int32_t width, int32_t height, BitDepth bitDepth)
+{
+    // return ;
+    switch (bitDepth)
+    {
+    case BitDepth::BIT_DEPTH_1:
+    case BitDepth::BIT_DEPTH_2:
+    case BitDepth::BIT_DEPTH_4:
+    case BitDepth::BIT_DEPTH_8:
+        return std::move(std::make_unique<Bitmap8>(width, height, bitDepth));
+    case BitDepth::BIT_DEPTH_24:
+        return std::move(std::make_unique<Bitmap24>(width, height, bitDepth));
     default:
         throw invalid_argument("Bit Depth not handled.");
     }
-
-    if (data_ == NULL)
-        throw runtime_error("Failed to allocate memory for data");
-
-    // no type checking for high bitdepths
-}
-
-BMP::~BMP()
-{
-    free(data_);
 }
 
 Color BMP::get_color(uint8_t index)
@@ -150,30 +197,6 @@ void BMP::AddColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
     colors_.addColor(r, g, b, a);
 }
 
-void BMP::SetPixel(int32_t x, int32_t y, uint8_t value)
-{
-    if (colors_.length() == 0)
-        throw invalid_argument("No color palette.");
-
-    if (colors_.length() < value)
-        throw range_error("Color index out of range");
-
-    if (kBitDepth > 8)
-        throw runtime_error("Can't assign by index");
-
-    // Copy the element into the array
-    memcpy((uint8_t *)data_ + ((x * kWidth + y) * sizeof(uint8_t)), &value, sizeof(uint8_t));
-}
-
-void BMP::SetPixel(int32_t x, int32_t y, const Color c)
-{
-    if (kBitDepth != 24)
-        throw invalid_argument("Don't use a Color object. Use an index");
-
-    // Copy the element into the array
-    memcpy((char *)data_ + ((x * kWidth + y) * sizeof(Color)), &c, sizeof(Color));
-}
-
 void BMP::ToFile(std::filesystem::path file_name, bool silent)
 {
     std::ofstream f;
@@ -190,8 +213,6 @@ void BMP::ToFile(std::filesystem::path file_name, bool silent)
     // store in bytes
     const int row_size = (kWidth * kBitDepth + 31) / 32 * 4;
     uint32_t raw_data_size = row_size * kHeight;
-
-    const int padding_start_bit = ((row_size - 4) * 8) + (kWidth * kBitDepth % 32);
 
     const uint32_t file_size = file_header_size + info_header_size + colors_.length() * 4 + raw_data_size;
     const uint32_t pixel_data_offset = file_header_size + info_header_size + colors_.length() * 4;
@@ -286,107 +307,9 @@ void BMP::ToFile(std::filesystem::path file_name, bool silent)
         }
     }
 
-    // should theoretically be faster because this is on the stack
-    uint8_t row[row_size];
-
-    for (int32_t j = 0; j < kHeight; j++)
-    {
-        // truncates
-        // clear bytes from memory to be reused
-        for (int i = 0; i < row_size; i++)
-            row[i] = 0x00;
-        switch (kBitDepth)
-        {
-        case 1:
-        case 2:
-        case 4:
-        case 8:
-        {
-            for (int32_t i = 0; i < kWidth; i++)
-            {
-                uint8_t bits = row[(i * kBitDepth) / 8];
-
-                if ((i * kBitDepth) < padding_start_bit)
-                {
-
-                    // black magic fuckery
-                    uint8_t data = *((uint8_t *)data_ + (i * kWidth + j));
-
-                    int offset = (8 - kBitDepth) - (i * kBitDepth % 8);
-                    bits |= (data << offset);
-                }
-                else
-                {
-                    bits <<= kBitDepth;
-                }
-                row[(i * kBitDepth) / 8] = bits;
-            }
-            break;
-        }
-        case 24:
-        {
-            for (uint32_t i = 0; i < kWidth; i++)
-            {
-                const Color *color = ((Color *)data_ + i * kWidth + j);
-                memcpy(&row[i * 3], &color->b, sizeof(uint8_t));
-                memcpy(&row[i * 3 + 1], &color->g, sizeof(uint8_t));
-                memcpy(&row[i * 3 + 2], &color->r, sizeof(uint8_t));
-            }
-            break;
-        }
-        case 32:
-        {
-            throw runtime_error("Not implemented yet");
-            break;
-        }
-        }
-        f.write(reinterpret_cast<char *>(row), row_size);
-    }
+    WriteDataImpl(f, row_size);
 
     f.close();
     cout << "File created: " + file_name.string() << endl;
     cout << "File Size: " << file_size << endl;
-}
-
-void BMP::Print()
-{
-    switch (kBitDepth)
-    {
-    case 1:
-    case 2:
-    case 4:
-    case 8:
-    {
-        for (int32_t i = 0; i < kWidth; i++)
-        {
-            for (int32_t j = 0; j < kHeight; j++)
-            {
-                // black magic
-                cout << (int)((char *)data_)[i * kWidth + j] << " ";
-            }
-            cout << endl;
-        }
-        break;
-    }
-    case 24:
-        // cout << ((Color *)data)->r << endl;
-        // for (unsigned int i = 0; i < width; i++)
-        // {
-        //     for (unsigned int j = 0; j < height; j++)
-        //     {
-        //         cout << ((Color *)(data + (i * width + j)))->r
-        //              << ((Color *)(data + (i * width + j)))->g
-        //              << ((Color *)(data + (i * width + j)))->b;
-        //     }
-        //     cout << endl;
-        // }
-        throw runtime_error("Bit Depth not handled.");
-        break;
-    case 32:
-        throw runtime_error("Bit Depth not handled.");
-        break;
-
-    default:
-        throw runtime_error("Bit Depth not handled.");
-    }
 }

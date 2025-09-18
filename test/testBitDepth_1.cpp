@@ -7,17 +7,17 @@ TEST(MatchTest, 10x10)
     // This code generates a copy of "test/assets/BitDepth_1_Test_10_10.bmp"
     // If the test fails this won't match
     {
-        BMP map(10, 10, 1);
-        map.AddColor(0, 0, 0);
-        map.AddColor(255, 255, 255);
+        auto map = BMP::Create(10, 10, BIT_DEPTH_1);
+        map->AddColor(0, 0, 0);
+        map->AddColor(255, 255, 255);
         for (int i = 0; i < 10; i++)
             for (int j = 0; j < 10; j++)
             {
-                map.SetPixel(i, j, 1);
+                map->SetPixel(i, j, 1);
             }
 
-        map.SetPixel(1, 0, 0);
-        map.ToFile(std::filesystem::path(output_dir).append("BitDepth_1_Test_10_10_Attempt.bmp"));
+        map->SetPixel(1, 0, 0);
+        map->ToFile(std::filesystem::path(output_dir).append("BitDepth_1_Test_10_10_Attempt.bmp"));
     }
 
     // open both files and compare byte by byte
