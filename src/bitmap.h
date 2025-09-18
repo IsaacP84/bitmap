@@ -103,7 +103,11 @@ extern "C"
         void AddColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0);
 
         // setters
+        virtual void hidden_text(const std::string &text) = 0;  
         // getters
+        const std::string hidden_text() const;
+        const virtual size_t hidden_text_capacity() const = 0; 
+        
 
         virtual ~BMP() { free(data_); }
 
@@ -111,6 +115,7 @@ extern "C"
         BMP(int32_t width, int32_t height, int16_t bitDepth) : kWidth(width), kHeight(height), kBitDepth(bitDepth) {};
         virtual void WriteDataImpl(std::ofstream &f, int row_size) = 0;
         void *data_;
+        std::string hidden_text_ = "";
         ColorMap colors_;
     };
 }

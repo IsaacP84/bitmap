@@ -22,16 +22,17 @@ public:
         if (data_ == NULL)
             throw runtime_error("Failed to allocate memory for data");
     }
-    void SetPixel(int32_t x, int32_t y, const Color) override;
+    void SetPixel(int32_t x, int32_t y, const Color) override
+    {
+        throw invalid_argument("Don't use a Color object. Use an index");
+    }
     void SetPixel(int32_t x, int32_t y, uint8_t index) override;
+
+    void hidden_text(const std::string &text) override;
+    const virtual size_t hidden_text_capacity() const override;
     void WriteDataImpl(std::ofstream &f, int row_size) override;
     void Print() override;
 };
-
-void Bitmap8::SetPixel(int32_t x, int32_t y, Color c)
-{
-    throw invalid_argument("Don't use a Color object. Use an index");
-}
 
 void Bitmap8::SetPixel(int32_t x, int32_t y, uint8_t index)
 {
@@ -45,10 +46,30 @@ void Bitmap8::SetPixel(int32_t x, int32_t y, uint8_t index)
     memcpy((uint8_t *)data_ + ((x * kWidth + y) * sizeof(uint8_t)), &index, sizeof(uint8_t));
 }
 
+void Bitmap8::hidden_text(const std::string &text)
+{
+    if ((text.size() + 1) > hidden_text_capacity())
+        throw length_error("Text too long to fit in padding bytes.");
+    hidden_text_ = text;
+}
+
+const size_t Bitmap8::hidden_text_capacity() const
+{
+    const int row_size = (kWidth * kBitDepth + 31) / 32 * 4;
+    const int padding_start_bit = ((row_size - 4) * 8) + (kWidth * kBitDepth % 32);
+    return (row_size * 8 - padding_start_bit) / 8 * kHeight;
+}
+
 void Bitmap8::WriteDataImpl(std::ofstream &f, int row_size)
 {
     const int padding_start_bit = ((row_size - 4) * 8) + (kWidth * kBitDepth % 32);
     uint8_t row[row_size];
+
+    std::cout << row_size * 8 - padding_start_bit << " bits of padding per row" << std::endl;
+    std::cout << (row_size * 8 - padding_start_bit) / 8 * kHeight << " bytes of padding in total" << std::endl;
+
+    std::cout << sizeof(hidden_text_) << " bytes in hidden text" << std::endl;
+    size_t charIndex = 0;
 
     for (int32_t j = 0; j < kHeight; j++)
     {
@@ -73,6 +94,17 @@ void Bitmap8::WriteDataImpl(std::ofstream &f, int row_size)
                 bits <<= kBitDepth;
 
             row[(i * kBitDepth) / 8] = bits;
+        }
+
+        for (int i = (kWidth * kBitDepth + 7) / 8; i < row_size; i++)
+        {
+            if (charIndex < sizeof(hidden_text_))
+            {
+                row[i] = hidden_text_[charIndex];
+                charIndex++;
+            }
+            else
+                row[i] = 0x00;
         }
 
         f.write(reinterpret_cast<char *>(row), row_size);
@@ -107,6 +139,8 @@ public:
     }
     void SetPixel(int32_t x, int32_t y, Color) override;
     void SetPixel(int32_t x, int32_t y, uint8_t index) override;
+    void hidden_text(const std::string &text) override;
+    const virtual size_t hidden_text_capacity() const override;
     void WriteDataImpl(std::ofstream &f, int row_size) override;
     void Print() override;
 };
@@ -121,10 +155,29 @@ void Bitmap24::SetPixel(int32_t x, int32_t y, uint8_t index)
     throw invalid_argument("Don't use an index. Use a Color object");
 }
 
+void Bitmap24::hidden_text(const std::string &text)
+{
+    if ((text.size() + 1) > hidden_text_capacity())
+        throw length_error("Text too long to fit in padding bytes.");
+    hidden_text_ = text;
+}
+
+const size_t Bitmap24::hidden_text_capacity() const
+{
+    const int row_size = (kWidth * kBitDepth + 31) / 32 * 4;
+    return (row_size - kWidth * 3) * kHeight;
+}
+
 void Bitmap24::WriteDataImpl(std::ofstream &f, int row_size)
 {
     // should theoretically be faster because this is on the stack
     uint8_t row[row_size];
+
+    std::cout << row_size - kWidth * 3 << " padding bytes per row" << std::endl;
+    std::cout << (row_size - kWidth * 3) * kHeight << " bytes of padding in total" << std::endl;
+
+    std::cout << sizeof(hidden_text_) << " bytes in hidden text" << std::endl;
+    size_t charIndex = 0;
 
     for (int32_t j = 0; j < kHeight; j++)
     {
@@ -140,6 +193,19 @@ void Bitmap24::WriteDataImpl(std::ofstream &f, int row_size)
             memcpy(&row[i * 3 + 1], &color->g, sizeof(uint8_t));
             memcpy(&row[i * 3 + 2], &color->r, sizeof(uint8_t));
         }
+        
+
+        for (int i = kWidth * 3; i < row_size; i++)
+        {
+            if (charIndex < (hidden_text_.size() + 1))
+            {
+                row[i] = hidden_text_[charIndex];
+                charIndex++;
+            }
+            else
+                row[i] = 0x00;
+        }
+
         f.write(reinterpret_cast<char *>(row), row_size);
     }
 }
@@ -195,6 +261,16 @@ void BMP::AddColor(ColorRGBA c)
 void BMP::AddColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
     colors_.addColor(r, g, b, a);
+}
+
+void BMP::hidden_text(const std::string &text)
+{
+    throw invalid_argument("Shouldn't never be called. Overridden in derived classes.");
+}
+
+const std::string BMP::hidden_text() const
+{
+    return hidden_text_;
 }
 
 void BMP::ToFile(std::filesystem::path file_name, bool silent)
