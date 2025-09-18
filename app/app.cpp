@@ -29,7 +29,7 @@ int main()
 
     {
         std::unique_ptr<BMP> map_ptr = BMP::Create(10, 10, BitDepth::BIT_DEPTH_1);
-        BMP &map = *map_ptr.get();
+        BMP &map = *map_ptr;
         map.AddColor(0, 0, 0);
         map.AddColor(255, 255, 255);
         for (int i = 0; i < 10; i++)
