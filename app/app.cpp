@@ -28,18 +28,19 @@ int main()
     }
 
     {
-        std::unique_ptr<BMP> map = BMP::Create(10, 10, BitDepth::BIT_DEPTH_1);
-        map->AddColor(0, 0, 0);
-        map->AddColor(255, 255, 255);
+        std::unique_ptr<BMP> map_ptr = BMP::Create(10, 10, BitDepth::BIT_DEPTH_1);
+        BMP &map = *map_ptr.get();
+        map.AddColor(0, 0, 0);
+        map.AddColor(255, 255, 255);
         for (int i = 0; i < 10; i++)
             for (int j = 0; j < 10; j++)
             {
-                map->SetPixel(i, j, 1);
+                map.SetPixel(i, j, 1);
             }
             
-        map->SetPixel(1, 0, 0);
-        map->Print();
-        map->ToFile(output_dir.append("test.bmp"));
+        map.SetPixel(1, 0, 0);
+        map.Print();
+        map.ToFile(output_dir.append("test.bmp"));
     }
 
     
